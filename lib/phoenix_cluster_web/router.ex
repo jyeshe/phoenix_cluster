@@ -7,6 +7,8 @@ defmodule PhoenixClusterWeb.Router do
 
   scope "/api", PhoenixClusterWeb do
     pipe_through :api
+
+    resources "/products", ProductController, except: [:new, :edit]
   end
 
   # Enables LiveDashboard only for development

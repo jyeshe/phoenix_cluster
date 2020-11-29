@@ -1,11 +1,18 @@
-# Script for populating the database. You can run it as:
-#
-#     mix run priv/repo/seeds.exs
-#
-# Inside the script, you can read and write to any of your
-# repositories directly:
-#
-#     PhoenixCluster.Repo.insert!(%PhoenixCluster.SomeSchema{})
-#
-# We recommend using the bang functions (`insert!`, `update!`
-# and so on) as they will fail if something goes wrong.
+alias PhoenixCluster.Repo
+alias PhoenixCluster.Products.Product
+
+now =
+  NaiveDateTime.utc_now()
+  |> NaiveDateTime.truncate(:second)
+
+products =
+  for i <- 1..10000 do
+    %{
+      id: Ecto.UUID.generate(),
+      name: "product#{i}",
+      inserted_at: now,
+      updated_at: now
+    }
+  end
+
+Repo.insert_all(Product, products)
