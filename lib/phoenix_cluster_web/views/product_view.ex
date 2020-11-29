@@ -11,7 +11,9 @@ defmodule PhoenixClusterWeb.ProductView do
   end
 
   def render("product.json", %{product: product}) do
-    %{id: product.id,
-      name: product.name}
+    %{
+      id: product.id,
+      name: product.name
+    }
   end
 end

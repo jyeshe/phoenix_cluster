@@ -7,6 +7,7 @@ defmodule PhoenixCluster.Products do
   alias PhoenixCluster.Repo
 
   alias PhoenixCluster.Products.Product
+  alias PhoenixCluster.Products.Cache, as: ProductsCache
 
   @doc """
   Returns the list of products.
@@ -50,9 +51,17 @@ defmodule PhoenixCluster.Products do
 
   """
   def create_product(attrs \\ %{}) do
-    %Product{}
-    |> Product.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %Product{}
+      |> Product.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, product} -> ProductsCache.put(product)
+      _ -> :nop
+    end
+
+    result
   end
 
   @doc """
@@ -68,9 +77,17 @@ defmodule PhoenixCluster.Products do
 
   """
   def update_product(%Product{} = product, attrs) do
-    product
-    |> Product.changeset(attrs)
-    |> Repo.update()
+    result =
+      product
+      |> Product.changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, product} -> ProductsCache.put(product)
+      _ -> :nop
+    end
+
+    result
   end
 
   @doc """
@@ -86,7 +103,14 @@ defmodule PhoenixCluster.Products do
 
   """
   def delete_product(%Product{} = product) do
-    Repo.delete(product)
+    result = Repo.delete(product)
+
+    case result do
+      {:ok, product} -> ProductsCache.delete(product.id)
+      _ -> :nop
+    end
+
+    result
   end
 
   @doc """

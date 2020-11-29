@@ -4,8 +4,14 @@ defmodule PhoenixCluster.Application do
   @moduledoc false
 
   use Application
+  require Logger
+
+  alias PhoenixCluster.Products.Cache, as: ProductsCache
 
   def start(_type, _args) do
+    # create cache table
+    ProductsCache.init()
+
     children = [
       # Start the Ecto repository
       PhoenixCluster.Repo,
@@ -23,6 +29,19 @@ defmodule PhoenixCluster.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: PhoenixCluster.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  def start_phase(phase, _start_type, _phase_args), do: if phase == :load_caches, do: load_caches()
+
+  def load_caches() do
+    begin = NaiveDateTime.utc_now()
+    PhoenixCluster.Products.list_products()
+    |> ProductsCache.load()
+    ended = NaiveDateTime.utc_now()
+
+    Logger.info("Products cache loaded in #{NaiveDateTime.diff(ended, begin, :millisecond)} ms")
+
+    :ok
   end
 
   # Tell Phoenix to update the endpoint configuration

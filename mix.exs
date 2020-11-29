@@ -20,7 +20,8 @@ defmodule PhoenixCluster.MixProject do
   def application do
     [
       mod: {PhoenixCluster.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools],
+      start_phases: [load_caches: []]
     ]
   end
 

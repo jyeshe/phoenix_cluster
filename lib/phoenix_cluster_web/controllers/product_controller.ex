@@ -3,11 +3,12 @@ defmodule PhoenixClusterWeb.ProductController do
 
   alias PhoenixCluster.Products
   alias PhoenixCluster.Products.Product
+  alias PhoenixCluster.Products.Cache, as: ProductsCache
 
   action_fallback PhoenixClusterWeb.FallbackController
 
   def index(conn, _params) do
-    products = Products.list_products()
+    products = ProductsCache.list()
     render(conn, "index.json", products: products)
   end
 
@@ -21,14 +22,19 @@ defmodule PhoenixClusterWeb.ProductController do
   end
 
   def show(conn, %{"id" => id}) do
-    product = Products.get_product!(id)
-    render(conn, "show.json", product: product)
+    product = ProductsCache.get(id)
+    if product do
+      render(conn, "show.json", product: product)
+    else
+      send_resp(conn, 404, Plug.Conn.Status.reason_phrase(404))
+    end
   end
 
   def update(conn, %{"id" => id, "product" => product_params}) do
     product = Products.get_product!(id)
 
     with {:ok, %Product{} = product} <- Products.update_product(product, product_params) do
+      ProductsCache.put(product)
       render(conn, "show.json", product: product)
     end
   end
@@ -37,6 +43,7 @@ defmodule PhoenixClusterWeb.ProductController do
     product = Products.get_product!(id)
 
     with {:ok, %Product{}} <- Products.delete_product(product) do
+      ProductsCache.delete(id)
       send_resp(conn, :no_content, "")
     end
   end

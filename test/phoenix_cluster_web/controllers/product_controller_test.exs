@@ -3,6 +3,7 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
 
   alias PhoenixCluster.Products
   alias PhoenixCluster.Products.Product
+  alias PhoenixCluster.Products.Cache, as: ProductsCache
 
   @create_attrs %{
     name: "some name"
@@ -12,8 +13,8 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
   }
   @invalid_attrs %{name: nil}
 
-  def fixture(:product) do
-    {:ok, product} = Products.create_product(@create_attrs)
+  def fixture(name \\ "some name") do
+    {:ok, product} = Products.create_product(%{@create_attrs | name: name})
     product
   end
 
@@ -23,9 +24,23 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
 
   describe "index" do
     test "lists all products", %{conn: conn} do
+      fixture("list_product1")
+      fixture("list_product2")
+
       conn = get(conn, Routes.product_path(conn, :index))
-      assert json_response(conn, 200)["data"] == []
+      set_from_response = MapSet.new(json_response(conn, 200)["data"])
+      set_from_cache = id_name_set(ProductsCache.list())
+
+      assert MapSet.equal?(set_from_cache, set_from_response)
     end
+  end
+
+  defp id_name_set(list) do
+    list
+    |> Enum.map(fn product -> Map.take(product, [:id, :name]) end)
+    |> Jason.encode!
+    |> Jason.decode!
+    |> MapSet.new()
   end
 
   describe "create product" do
@@ -75,14 +90,14 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
       conn = delete(conn, Routes.product_path(conn, :delete, product))
       assert response(conn, 204)
 
-      assert_error_sent 404, fn ->
-        get(conn, Routes.product_path(conn, :show, product))
-      end
+
+      conn = get(conn, Routes.product_path(conn, :show, product))
+      assert response(conn, 404)
     end
   end
 
   defp create_product(_) do
-    product = fixture(:product)
+    product = fixture("product#{Enum.random(1000..9999)}")
     %{product: product}
   end
 end
