@@ -12,17 +12,20 @@ defmodule PhoenixCluster.Application do
     # create cache table
     ProductsCache.init()
 
+    # phoenix main nodes (static ips)
+    topologies = [
+      example: [
+        strategy: Cluster.Strategy.Epmd,
+        config: [hosts: [:"a@127.0.0.1", :"b@127.0.0.1"]],
+      ]
+    ]
+
     children = [
-      # Start the Ecto repository
       PhoenixCluster.Repo,
-      # Start the Telemetry supervisor
       PhoenixClusterWeb.Telemetry,
-      # Start the PubSub system
       {Phoenix.PubSub, name: PhoenixCluster.PubSub},
-      # Start the Endpoint (http/https)
-      PhoenixClusterWeb.Endpoint
-      # Start a worker by calling: PhoenixCluster.Worker.start_link(arg)
-      # {PhoenixCluster.Worker, arg}
+      PhoenixClusterWeb.Endpoint,
+      {Cluster.Supervisor, [topologies, [name: PhoenixCluster.ClusterSupervisor]]},
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
