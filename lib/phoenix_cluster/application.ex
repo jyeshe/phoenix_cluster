@@ -1,6 +1,4 @@
 defmodule PhoenixCluster.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
@@ -13,13 +11,19 @@ defmodule PhoenixCluster.Application do
     ProductsCache.init()
 
     # phoenix main nodes (static ips)
+    main_nodes =
+      System.get_env("PHOENIX_CLUSTER_IPS", "127.0.0.1")
+      |> String.split(",")
+      |> Enum.map(fn ip -> String.to_atom("phoenix-cluster@#{ip}") end)
+
     topologies = [
       example: [
         strategy: Cluster.Strategy.Epmd,
-        config: [hosts: [:"a@127.0.0.1", :"b@127.0.0.1"]],
+        config: [hosts: main_nodes],
       ]
     ]
 
+    # app supervised
     children = [
       PhoenixCluster.Repo,
       PhoenixClusterWeb.Telemetry,
@@ -28,8 +32,6 @@ defmodule PhoenixCluster.Application do
       {Cluster.Supervisor, [topologies, [name: PhoenixCluster.ClusterSupervisor]]},
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: PhoenixCluster.Supervisor]
     Supervisor.start_link(children, opts)
   end
