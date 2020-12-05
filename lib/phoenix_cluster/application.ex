@@ -10,26 +10,13 @@ defmodule PhoenixCluster.Application do
     # create cache table
     ProductsCache.init()
 
-    # phoenix main nodes (static ips)
-    main_nodes =
-      System.get_env("PHOENIX_CLUSTER_IPS", "127.0.0.1")
-      |> String.split(",")
-      |> Enum.map(fn ip -> String.to_atom("phoenix-cluster@#{ip}") end)
-
-    topologies = [
-      example: [
-        strategy: Cluster.Strategy.Epmd,
-        config: [hosts: main_nodes],
-      ]
-    ]
-
     # app supervised
     children = [
       PhoenixCluster.Repo,
+      PhoenixCluster.Distribution,
       PhoenixClusterWeb.Telemetry,
       {Phoenix.PubSub, name: PhoenixCluster.PubSub},
       PhoenixClusterWeb.Endpoint,
-      {Cluster.Supervisor, [topologies, [name: PhoenixCluster.ClusterSupervisor]]},
     ]
 
     opts = [strategy: :one_for_one, name: PhoenixCluster.Supervisor]
