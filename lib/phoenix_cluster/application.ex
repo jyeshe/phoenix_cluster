@@ -25,7 +25,7 @@ defmodule PhoenixCluster.Application do
 
     # app supervised
     children = [
-      PhoenixCluster.Repo,
+      #PhoenixCluster.Repo,
       PhoenixClusterWeb.Telemetry,
       {Phoenix.PubSub, name: PhoenixCluster.PubSub},
       PhoenixClusterWeb.Endpoint,
@@ -36,7 +36,7 @@ defmodule PhoenixCluster.Application do
     Supervisor.start_link(children, opts)
   end
 
-  def start_phase(phase, _start_type, _phase_args), do: if phase == :load_caches, do: load_caches()
+  def start_phase(phase, _start_type, _phase_args), do: if phase == :load_caches, do: :ok #load_caches()
 
   def load_caches() do
     begin = NaiveDateTime.utc_now()
