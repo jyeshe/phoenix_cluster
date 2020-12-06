@@ -40,14 +40,14 @@ defmodule PhoenixCluster.Distribution do
       Enum.each(connect_list, fn node -> Node.connect(node) end)
     end
 
-    Logger.info("[#{@modname}] connected to #{inspect Node.list()}")
+    Logger.info("[#{@modname}] is connected to #{inspect Node.list()}")
 
     {:noreply, main_nodes}
   end
 
   defp nodes_from_env() do
-    System.get_env("BEAM_DIST_MAIN_IPS", "127.0.0.1")
+    System.get_env("BEAM_DIST_MAIN_NODES", "#{@release_name}@127.0.0.1")
     |> String.split(",")
-    |> Enum.map(fn ip -> String.to_atom("#{@release_name}@#{ip}") end)
+    |> Enum.map(&String.to_atom/1)
   end
 end
