@@ -4,7 +4,7 @@ defmodule PhoenixCluster.Application do
   use Application
   require Logger
 
-  alias PhoenixCluster.Products.Cache, as: ProductsCache
+  alias PhoenixCluster.Products.LocalCache, as: ProductsCache
 
   def start(_type, _args) do
     # create cache table
@@ -14,6 +14,7 @@ defmodule PhoenixCluster.Application do
     children = [
       PhoenixCluster.Repo,
       PhoenixCluster.Distribution,
+      PhoenixCluster.Products.DistCache,
       PhoenixClusterWeb.Telemetry,
       {Phoenix.PubSub, name: PhoenixCluster.PubSub},
       PhoenixClusterWeb.Endpoint,
@@ -23,16 +24,14 @@ defmodule PhoenixCluster.Application do
     Supervisor.start_link(children, opts)
   end
 
-  def start_phase(phase, _start_type, _phase_args), do: if phase == :load_caches, do: load_caches()
+  def start_phase(phase, _start_type, _phase_args) do
+    if phase == :load_caches do
+      load_caches()
+    end
+  end
 
   def load_caches() do
-    begin = NaiveDateTime.utc_now()
-    PhoenixCluster.Products.list_products()
-    |> ProductsCache.load()
-    ended = NaiveDateTime.utc_now()
-
-    Logger.info("Products cache loaded in #{NaiveDateTime.diff(ended, begin, :millisecond)} ms")
-
+    PhoenixCluster.Products.DistCache.load_local()
     :ok
   end
 

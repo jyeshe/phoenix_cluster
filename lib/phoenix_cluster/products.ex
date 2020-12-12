@@ -7,7 +7,7 @@ defmodule PhoenixCluster.Products do
   alias PhoenixCluster.Repo
 
   alias PhoenixCluster.Products.Product
-  alias PhoenixCluster.Products.Cache, as: ProductsCache
+  alias PhoenixCluster.Products.DistCache
 
   @doc """
   Returns the list of products.
@@ -57,7 +57,7 @@ defmodule PhoenixCluster.Products do
       |> Repo.insert()
 
     case result do
-      {:ok, product} -> ProductsCache.put(product)
+      {:ok, product} -> DistCache.put(product)
       _ -> :nop
     end
 
@@ -83,7 +83,7 @@ defmodule PhoenixCluster.Products do
       |> Repo.update()
 
     case result do
-      {:ok, product} -> ProductsCache.put(product)
+      {:ok, product} -> DistCache.put(product)
       _ -> :nop
     end
 
@@ -106,7 +106,7 @@ defmodule PhoenixCluster.Products do
     result = Repo.delete(product)
 
     case result do
-      {:ok, product} -> ProductsCache.delete(product.id)
+      {:ok, product} -> DistCache.delete(product.id)
       _ -> :nop
     end
 

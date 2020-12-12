@@ -3,7 +3,7 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
 
   alias PhoenixCluster.Products
   alias PhoenixCluster.Products.Product
-  alias PhoenixCluster.Products.Cache, as: ProductsCache
+  alias PhoenixCluster.Products.LocalCache, as: ProductsCache
 
   @create_attrs %{
     name: "some name"

@@ -1,4 +1,4 @@
-defmodule PhoenixCluster.Products.Cache do
+defmodule PhoenixCluster.Products.LocalCache do
 
   @table :products_ets
 
