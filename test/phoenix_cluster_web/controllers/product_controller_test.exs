@@ -1,9 +1,9 @@
-defmodule PhoenixClusterWeb.ProductControllerTest do
+defmodule PhoenixClusterWeb.ItemControllerTest do
   use PhoenixClusterWeb.ConnCase
 
-  alias PhoenixCluster.Products
-  alias PhoenixCluster.Products.Product
-  alias PhoenixCluster.Products.LocalCache, as: ProductsCache
+  alias PhoenixCluster.Items
+  alias PhoenixCluster.Items.Item
+  alias PhoenixCluster.Items.LocalCache, as: ItemsCache
 
   @create_attrs %{
     name: "some name"
@@ -14,8 +14,8 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
   @invalid_attrs %{name: nil}
 
   def fixture(name \\ "some name") do
-    {:ok, product} = Products.create_product(%{@create_attrs | name: name})
-    product
+    {:ok, item} = Items.create_item(%{@create_attrs | name: name})
+    item
   end
 
   setup %{conn: conn} do
@@ -23,13 +23,13 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
   end
 
   describe "index" do
-    test "lists all products", %{conn: conn} do
-      fixture("list_product1")
-      fixture("list_product2")
+    test "lists all items", %{conn: conn} do
+      fixture("list_item1")
+      fixture("list_item2")
 
-      conn = get(conn, Routes.product_path(conn, :index))
+      conn = get(conn, Routes.item_path(conn, :index))
       set_from_response = MapSet.new(json_response(conn, 200)["data"])
-      set_from_cache = id_name_set(ProductsCache.list())
+      set_from_cache = id_name_set(ItemsCache.list())
 
       assert MapSet.equal?(set_from_cache, set_from_response)
     end
@@ -37,18 +37,18 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
 
   defp id_name_set(list) do
     list
-    |> Enum.map(fn product -> Map.take(product, [:id, :name]) end)
+    |> Enum.map(fn item -> Map.take(item, [:id, :name]) end)
     |> Jason.encode!
     |> Jason.decode!
     |> MapSet.new()
   end
 
-  describe "create product" do
-    test "renders product when data is valid", %{conn: conn} do
-      conn = post(conn, Routes.product_path(conn, :create), product: @create_attrs)
+  describe "create item" do
+    test "renders item when data is valid", %{conn: conn} do
+      conn = post(conn, Routes.item_path(conn, :create), item: @create_attrs)
       assert %{"id" => id} = json_response(conn, 201)["data"]
 
-      conn = get(conn, Routes.product_path(conn, :show, id))
+      conn = get(conn, Routes.item_path(conn, :show, id))
 
       assert %{
                "id" => _id,
@@ -57,19 +57,19 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
     end
 
     test "renders errors when data is invalid", %{conn: conn} do
-      conn = post(conn, Routes.product_path(conn, :create), product: @invalid_attrs)
+      conn = post(conn, Routes.item_path(conn, :create), item: @invalid_attrs)
       assert json_response(conn, 422)["errors"] != %{}
     end
   end
 
-  describe "update product" do
-    setup [:create_product]
+  describe "update item" do
+    setup [:create_item]
 
-    test "renders product when data is valid", %{conn: conn, product: %Product{id: id} = product} do
-      conn = put(conn, Routes.product_path(conn, :update, product), product: @update_attrs)
+    test "renders item when data is valid", %{conn: conn, item: %Item{id: id} = item} do
+      conn = put(conn, Routes.item_path(conn, :update, item), item: @update_attrs)
       assert %{"id" => ^id} = json_response(conn, 200)["data"]
 
-      conn = get(conn, Routes.product_path(conn, :show, id))
+      conn = get(conn, Routes.item_path(conn, :show, id))
 
       assert %{
                "id" => _id,
@@ -77,27 +77,27 @@ defmodule PhoenixClusterWeb.ProductControllerTest do
              } = json_response(conn, 200)["data"]
     end
 
-    test "renders errors when data is invalid", %{conn: conn, product: product} do
-      conn = put(conn, Routes.product_path(conn, :update, product), product: @invalid_attrs)
+    test "renders errors when data is invalid", %{conn: conn, item: item} do
+      conn = put(conn, Routes.item_path(conn, :update, item), item: @invalid_attrs)
       assert json_response(conn, 422)["errors"] != %{}
     end
   end
 
-  describe "delete product" do
-    setup [:create_product]
+  describe "delete item" do
+    setup [:create_item]
 
-    test "deletes chosen product", %{conn: conn, product: product} do
-      conn = delete(conn, Routes.product_path(conn, :delete, product))
+    test "deletes chosen item", %{conn: conn, item: item} do
+      conn = delete(conn, Routes.item_path(conn, :delete, item))
       assert response(conn, 204)
 
 
-      conn = get(conn, Routes.product_path(conn, :show, product))
+      conn = get(conn, Routes.item_path(conn, :show, item))
       assert response(conn, 404)
     end
   end
 
-  defp create_product(_) do
-    product = fixture("product#{Enum.random(1000..9999)}")
-    %{product: product}
+  defp create_item(_) do
+    item = fixture("item#{Enum.random(1000..9999)}")
+    %{item: item}
   end
 end

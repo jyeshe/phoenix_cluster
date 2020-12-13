@@ -4,17 +4,17 @@ defmodule PhoenixCluster.Application do
   use Application
   require Logger
 
-  alias PhoenixCluster.Products.LocalCache, as: ProductsCache
+  alias PhoenixCluster.Items.LocalCache, as: ItemsCache
 
   def start(_type, _args) do
     # create cache table
-    ProductsCache.init()
+    ItemsCache.init()
 
     # app supervised
     children = [
       PhoenixCluster.Repo,
       PhoenixCluster.Distribution,
-      PhoenixCluster.Products.DistCache,
+      PhoenixCluster.Items.DistCache,
       PhoenixClusterWeb.Telemetry,
       {Phoenix.PubSub, name: PhoenixCluster.PubSub},
       PhoenixClusterWeb.Endpoint,
@@ -31,7 +31,7 @@ defmodule PhoenixCluster.Application do
   end
 
   def load_caches() do
-    PhoenixCluster.Products.DistCache.load_local()
+    PhoenixCluster.Items.DistCache.load_local()
     :ok
   end
 

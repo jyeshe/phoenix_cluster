@@ -8,12 +8,12 @@ defmodule PhoenixClusterWeb.Router do
   scope "/api", PhoenixClusterWeb do
     pipe_through :api
 
-    resources "/products", ProductController, except: [:new, :edit]
+    resources "/items", ItemController, except: [:new, :edit]
   end
 
   # Enables LiveDashboard only for development
   #
-  # If you want to use the LiveDashboard in production, you should put
+  # If you want to use the LiveDashboard in itemion, you should put
   # it behind authentication and allow only admins to access it.
   # If your application does not have an admins-only section yet,
   # you can use Plug.BasicAuth to set up some basic authentication

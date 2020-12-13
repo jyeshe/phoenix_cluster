@@ -7,17 +7,17 @@ defmodule Batch do
 
   def init(:ok), do: {:ok, []}
 
-  def add(product) do
-    GenServer.cast(__MODULE__, {:add, product})
+  def add(item) do
+    GenServer.cast(__MODULE__, {:add, item})
   end
 
   def consume() do
     GenServer.call(__MODULE__, :consume)
   end
 
-  def handle_cast({:add, product}, state) do
-    # if order does not mater invert to [product | state]
-    {:noreply, state ++ [product]}
+  def handle_cast({:add, item}, state) do
+    # if order does not mater invert to [item | state]
+    {:noreply, state ++ [item]}
   end
 
   def handle_call(:consume, _from, state) do
@@ -27,7 +27,7 @@ end
 
 Batch.start_link()
 
-alias PhoenixCluster.Products.{Cache, Product}
+alias PhoenixCluster.Items.{Cache, Item}
 
 # local test:
 #
@@ -43,9 +43,9 @@ alias PhoenixCluster.Products.{Cache, Product}
 
 make_new_list = fn ->
   for i <- 1..10000 do
-    %Product{
+    %Item{
       id: Ecto.UUID.generate,
-      name: "product#{i}",
+      name: "item#{i}",
       inserted_at: NaiveDateTime.utc_now,
       updated_at: NaiveDateTime.utc_now
     }
@@ -67,7 +67,7 @@ Benchee.run(%{
   "one_by_one - 1 replica" => fn -> [node1] |> Enum.each(fn node -> Enum.each(list1, &Node.spawn(node, Cache, :put, [&1])) end) end,
   "chuncks - 1 replica" => fn ->
     Enum.each(chunks1, fn chunk ->
-      Enum.each(chunk, fn product -> Batch.add(product) end)
+      Enum.each(chunk, fn item -> Batch.add(item) end)
       Node.spawn(node2, Cache, :load, [Batch.consume()])
     end)
   end,
@@ -75,7 +75,7 @@ Benchee.run(%{
   "chuncks - 2 replicas" => fn ->
     Enum.each(nodes, fn node ->
       Enum.each(chunks2, fn chunk ->
-        Enum.each(chunk, fn product -> Batch.add(product) end)
+        Enum.each(chunk, fn item -> Batch.add(item) end)
         Node.spawn(node, Cache, :load, [Batch.consume()])
       end)
     end)

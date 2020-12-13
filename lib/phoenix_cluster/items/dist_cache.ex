@@ -1,9 +1,9 @@
-defmodule PhoenixCluster.Products.DistCache do
+defmodule PhoenixCluster.Items.DistCache do
   use GenServer
   require Logger
 
   alias PhoenixCluster.Distribution
-  alias PhoenixCluster.Products.LocalCache
+  alias PhoenixCluster.Items.LocalCache
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -28,12 +28,12 @@ defmodule PhoenixCluster.Products.DistCache do
   # Functions put/1 and delete/1 in mutual exclusion to load_local/0 and load_local/1
   # in order to avoid overriding changes in progress with old database data.
   #
-  def put(product) do
-    GenServer.cast(__MODULE__, {:put, product})
+  def put(item) do
+    GenServer.cast(__MODULE__, {:put, item})
   end
 
-  def delete(product_id) do
-    GenServer.cast(__MODULE__, {:delete, product_id})
+  def delete(item_id) do
+    GenServer.cast(__MODULE__, {:delete, item_id})
   end
 
   def load_local() do
@@ -60,28 +60,28 @@ defmodule PhoenixCluster.Products.DistCache do
   # Cache Server
   #
   @impl true
-  def handle_cast({:put, product}, %{active_nodes: active_nodes} = state) do
+  def handle_cast({:put, item}, %{active_nodes: active_nodes} = state) do
     # this will execute before or after loading
-    LocalCache.put(product)
+    LocalCache.put(item)
 
     node_pid_map =
       for node <- active_nodes, into: %{} do
         # spawn remote process
-        pid = Node.spawn_link(node, LocalCache, :put, [product])
+        pid = Node.spawn_link(node, LocalCache, :put, [item])
         {node, pid}
       end
     {:noreply, new_change_state(state, node_pid_map)}
   end
 
   @impl true
-  def handle_cast({:delete, product_id}, %{active_nodes: active_nodes} = state) do
+  def handle_cast({:delete, item_id}, %{active_nodes: active_nodes} = state) do
     # this will execute before or after loading
-    LocalCache.delete(product_id)
+    LocalCache.delete(item_id)
 
     node_pid_map =
       for node <- active_nodes, into: %{} do
         # spawn remote process
-        pid = Node.spawn_link(node, LocalCache, :delete, [product_id])
+        pid = Node.spawn_link(node, LocalCache, :delete, [item_id])
         {node, pid}
       end
 
@@ -129,11 +129,11 @@ defmodule PhoenixCluster.Products.DistCache do
     # track load time
     {time_microsecs, _val} = :timer.tc(fn ->
       # to optmize might load only updated after disconnection
-      PhoenixCluster.Products.list_products()
+      PhoenixCluster.Items.list_items()
       |> LocalCache.load()
     end)
 
-    Logger.info("Products cache loaded in #{div(time_microsecs, 1000)} ms")
+    Logger.info("Items cache loaded in #{div(time_microsecs, 1000)} ms")
 
   end
 

@@ -19,7 +19,7 @@ defmodule PhoenixClusterWeb.Endpoint do
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
-  # when deploying your static files in production.
+  # when deploying your static files in itemion.
   plug Plug.Static,
     at: "/",
     from: :phoenix_cluster,

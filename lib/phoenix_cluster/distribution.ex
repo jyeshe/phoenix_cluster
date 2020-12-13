@@ -2,7 +2,7 @@ defmodule PhoenixCluster.Distribution do
   use GenServer
   require Logger
 
-  alias PhoenixCluster.Products.DistCache, as: DistProductsCache
+  alias PhoenixCluster.Items.DistCache, as: DistItemsCache
 
   @release_name    Mix.Project.config |> Keyword.get(:app)
   @update_wait_ms  30_000
@@ -83,7 +83,7 @@ defmodule PhoenixCluster.Distribution do
     Logger.info("[#{__MODULE__}] cluster_nodes: #{inspect cache_nodes_updated}")
     Logger.info("[#{__MODULE__}] nodes_down: #{inspect cache_nodes_updated -- connected_nodes}")
 
-    DistProductsCache.set_active(connected_nodes)
+    DistItemsCache.set_active(connected_nodes)
 
     # notify nodes that were down to reload cache
     MapSet.new(connected_nodes)
@@ -108,7 +108,7 @@ defmodule PhoenixCluster.Distribution do
     |> Enum.each(fn node ->
         last_change = Map.get(last_change_map, node)
         if last_change do
-          Node.spawn_link(node, DistProductsCache, :local_load, [last_change])
+          Node.spawn_link(node, DistItemsCache, :local_load, [last_change])
         end
       end)
   end
