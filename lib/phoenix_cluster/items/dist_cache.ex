@@ -15,8 +15,9 @@ defmodule PhoenixCluster.Items.DistCache do
 
     initial_state = %{
       active_nodes: [],
+      cache_requests: %{},
       last_change: nil,
-      last_load: nil
+      last_load: nil,
     }
 
     {:ok, initial_state}
@@ -40,8 +41,8 @@ defmodule PhoenixCluster.Items.DistCache do
     GenServer.cast(__MODULE__, :load_local)
   end
 
-  def load_local(remote_last_change) do
-    GenServer.cast(__MODULE__, {:load_local, remote_last_change})
+  def load_local(from_node, request_id, remote_last_change) do
+    GenServer.cast(__MODULE__, {:load_local, from_node, request_id, remote_last_change})
   end
 
   #
@@ -60,9 +61,13 @@ defmodule PhoenixCluster.Items.DistCache do
   # Cache Server
   #
   @impl true
-  def handle_cast({:put, item}, %{active_nodes: active_nodes} = state) do
+  def handle_cast({operation, item}, state) when operation in [:put, :delete] do
+    %{
+      active_nodes: active_nodes,
+      cache_requests: requests
+    } = state
     # this will execute before or after loading
-    LocalCache.put(item)
+    apply(LocalCache, operation, [item])
 
     node_pid_map =
       for node <- active_nodes, into: %{} do
@@ -70,24 +75,14 @@ defmodule PhoenixCluster.Items.DistCache do
         pid = Node.spawn_link(node, LocalCache, :put, [item])
         {node, pid}
       end
-    {:noreply, new_change_state(state, node_pid_map)}
+
+    state_change = %{
+      cache_requests: Map.merge(requests, node_pid_map),
+      last_change: NaiveDateTime.utc_now()
+    }
+
+    {:noreply, Map.merge(state, state_change)}
   end
-
-  @impl true
-  def handle_cast({:delete, item_id}, %{active_nodes: active_nodes} = state) do
-    # this will execute before or after loading
-    LocalCache.delete(item_id)
-
-    node_pid_map =
-      for node <- active_nodes, into: %{} do
-        # spawn remote process
-        pid = Node.spawn_link(node, LocalCache, :delete, [item_id])
-        {node, pid}
-      end
-
-    {:noreply, new_change_state(state, node_pid_map)}
-  end
-
 
   @impl true
   def handle_cast(:load_local, state) do
@@ -96,7 +91,9 @@ defmodule PhoenixCluster.Items.DistCache do
   end
 
   @impl true
-  def handle_cast({:load_local, remote_last_change}, %{last_load: last_load} = state) do
+  def handle_cast({:load_local, from_node, request_id, remote_last_change}, state) do
+    %{last_load: last_load} = state
+
     new_last_load =
       if is_load_needed?(remote_last_change, last_load) do
         do_load_cache()
@@ -104,6 +101,8 @@ defmodule PhoenixCluster.Items.DistCache do
       else
         last_load
       end
+
+    Node.spawn(from_node, Distribution, :remote_reloaded, [Node.self(), request_id])
 
     {:noreply, %{state | last_load: new_last_load}}
   end
@@ -135,11 +134,5 @@ defmodule PhoenixCluster.Items.DistCache do
 
     Logger.info("Items cache loaded in #{div(time_microsecs, 1000)} ms")
 
-  end
-
-  defp new_change_state(state, node_pid_map) do
-    state
-    |> Map.merge(node_pid_map)
-    |> Map.put(:last_change, NaiveDateTime.utc_now())
   end
 end

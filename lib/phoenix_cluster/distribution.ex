@@ -22,8 +22,9 @@ defmodule PhoenixCluster.Distribution do
 
     initial_state = %{
       cache_nodes: cache_nodes,
-      reload_nodes: MapSet.new(),
-      last_change_map: %{}
+      inactive_nodes: MapSet.new(),
+      last_change_map: %{},
+      reload_requests: %{}
     }
     {:ok, initial_state}
   end
@@ -32,17 +33,23 @@ defmodule PhoenixCluster.Distribution do
     if node, do: GenServer.cast(__MODULE__, {:inactive, node, last_change})
   end
 
+  def remote_reloaded(node, request_id) do
+    GenServer.cast(__MODULE__, {:remote_reloaded, node, request_id})
+  end
+
   @impl true
-  def handle_cast({:inactive, node, last_change}, state) do
+  def handle_cast({:inactive, inactive_node, last_change}, state) do
     %{
-      reload_nodes: reload_nodes,
+      inactive_nodes: inactive_nodes,
       last_change_map: last_change_map
     } = state
 
-    new_last_change_map = update_last_change(last_change_map, node, last_change)
+    new_last_change_map =
+      last_change_map
+      |> update_last_change(inactive_node, last_change)
 
     state_change = %{
-      reload_nodes: MapSet.put(reload_nodes, node),
+      inactive_nodes: MapSet.put(inactive_nodes, inactive_node),
       last_change_map: new_last_change_map
     }
 
@@ -53,8 +60,9 @@ defmodule PhoenixCluster.Distribution do
   def handle_info(:check_update, state) do
     %{
       cache_nodes: cache_nodes,
-      reload_nodes: reload_nodes,
-      last_change_map: last_change_map
+      inactive_nodes: inactive_nodes,
+      last_change_map: last_change_map,
+      reload_requests: reload_requests
     } = state
     # refresh list
     cache_nodes_updated = nodes_from_env()
@@ -62,7 +70,7 @@ defmodule PhoenixCluster.Distribution do
     # disconnect removed nodes
     disconnect_list = cache_nodes -- cache_nodes_updated
 
-    new_last_change_map = Enum.reduce(disconnect_list, last_change_map,
+    clean_last_change_map = Enum.reduce(disconnect_list, last_change_map,
       fn node, map ->
         Node.disconnect(node)
         Map.delete(map, node)
@@ -78,7 +86,7 @@ defmodule PhoenixCluster.Distribution do
       Enum.each(connect_list, &Node.connect/1)
     end
 
-    # keep track of connected nodes
+    # currently connected nodes
     connected_nodes = Node.list()
     Logger.info("[#{__MODULE__}] cluster_nodes: #{inspect cache_nodes_updated}")
     Logger.info("[#{__MODULE__}] nodes_down: #{inspect cache_nodes_updated -- connected_nodes}")
@@ -86,29 +94,83 @@ defmodule PhoenixCluster.Distribution do
     DistItemsCache.set_active(connected_nodes)
 
     # notify nodes that were down to reload cache
-    MapSet.new(connected_nodes)
-    |> MapSet.intersection(reload_nodes)
-    |> MapSet.to_list()
-    |> nodes_reload(last_change_map)
+    connected_set = MapSet.new(connected_nodes)
+    previous_pending_set =
+      MapSet.new(reload_requests)
+      |> MapSet.intersection(connected_set)
+    new_pending_set =
+      connected_set
+      |> MapSet.intersection(inactive_nodes)
+
+    # tracks reload requests
+    new_reload_requests =
+      MapSet.union(previous_pending_set, new_pending_set)
+      |> MapSet.to_list()
+      |> reload_remote_caches(last_change_map)
 
     state_change = %{
       cache_nodes: cache_nodes_updated,
       inactive_nodes: MapSet.new(),
-      last_change_map: new_last_change_map
+      last_change_map: clean_last_change_map,
+      reload_requests: new_reload_requests
     }
 
     {:noreply, Map.merge(state, state_change)}
   end
 
+  @impl true
+  def handle_info({:EXIT, pid, :noconnection}, state) do
+    %{
+      reload_requests: reload_requests,
+      inactive_nodes: inactive_set
+    } = state
+
+    inactive_node =
+      Map.keys(reload_requests)
+      |> Enum.find(
+          fn node ->
+            request_pid =
+              reload_requests
+              |> Map.get(node, {nil, nil})
+              |> elem(0)
+
+            request_pid == pid
+          end)
+
+    {:noreply, %{state | inactive_node: MapSet.put(inactive_set, inactive_node)}}
+  end
+
+  @impl true
+  def handle_info({:remote_reloaded, node, request_id}, state) do
+    %{reload_requests: reload_requests} = state
+    requested_id =
+      reload_requests
+      |> Map.get(node, {nil, nil})
+      |> elem(1)
+
+    new_reload_requests =
+      if requested_id == request_id do
+        Map.delete(reload_requests, node)
+      else
+        reload_requests
+      end
+    {:noreply, %{state | reload_requests: new_reload_requests}}
+  end
+
   #
   # Internal
   #
-  defp nodes_reload(new_connection_nodes, last_change_map) do
+  defp reload_remote_caches(new_connection_nodes, last_change_map) do
     new_connection_nodes
-    |> Enum.each(fn node ->
+    |> Enum.reduce(Map.new(), fn node, map ->
         last_change = Map.get(last_change_map, node)
+
         if last_change do
-          Node.spawn_link(node, DistItemsCache, :local_load, [last_change])
+          request_id = Ecto.UUID.bingenerate()
+          pid = Node.spawn_link(node, DistItemsCache, :local_load, [last_change, request_id])
+          Map.put(map, node, {pid, request_id})
+        else
+          map
         end
       end)
   end
