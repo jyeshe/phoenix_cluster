@@ -61,18 +61,18 @@ defmodule PhoenixCluster.Items.DistCache do
   # Cache Server
   #
   @impl true
-  def handle_cast({operation, item}, state) when operation in [:put, :delete] do
+  def handle_cast({operation, item_or_id}, state) when operation in [:put, :delete] do
     %{
       active_nodes: active_nodes,
       cache_requests: requests
     } = state
     # this will execute before or after loading
-    apply(LocalCache, operation, [item])
+    apply(LocalCache, operation, [item_or_id])
 
     node_pid_map =
       for node <- active_nodes, into: %{} do
         # spawn remote process
-        pid = Node.spawn_link(node, LocalCache, :put, [item])
+        pid = Node.spawn_link(node, LocalCache, operation, [item_or_id])
         {node, pid}
       end
 
@@ -109,8 +109,19 @@ defmodule PhoenixCluster.Items.DistCache do
 
   @impl true
   def handle_info({:EXIT, pid, :noconnection}, state) do
-    %{active_nodes: active_nodes, last_change: last_change} = state
-    inactive_node = Enum.find(active_nodes, fn node -> Map.get(state, node) == pid end)
+    %{
+      active_nodes: active_nodes,
+      cache_requests: cache_requests,
+      last_change: last_change
+    } = state
+
+    inactive_node =
+      cache_requests
+      |> Map.to_list()
+      |> Enum.find_value(fn {node, request_pid} ->
+          if request_pid == pid, do: node
+        end)
+
     Distribution.set_inactive(inactive_node, last_change)
 
     {:noreply, %{state | active_nodes: active_nodes -- [inactive_node]}}
@@ -133,6 +144,5 @@ defmodule PhoenixCluster.Items.DistCache do
     end)
 
     Logger.info("Items cache loaded in #{div(time_microsecs, 1000)} ms")
-
   end
 end
